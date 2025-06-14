@@ -1,25 +1,26 @@
 console.log('PromptFlair content script loaded.');
 
-// --- 1. Find the target text area on the page ---
-const targetTextArea = document.getElementById('prompt-textarea') as HTMLTextAreaElement;
+// This function contains all the logic to set up our app
+function initializeApp(targetNode: HTMLTextAreaElement) {
+    console.log('PromptFlair: Target textarea found. Initializing app.');
 
-if (targetTextArea) {
-    // --- 2. Create our UI root element ---
-    // This is the container where our React app will live.
+    // --- Create our UI root element ---
     const appContainer = document.createElement('div');
     appContainer.id = 'promptflair-root';
     
-    // Position it relative to the form containing the textarea
-    const parentForm = targetTextArea.closest('form');
-    if (parentForm) {
-        parentForm.style.position = 'relative'; // Needed for absolute positioning of our icon
-        parentForm.appendChild(appContainer);
+    const parentForm = targetNode.closest('form');
+    if (!parentForm) {
+        console.error('PromptFlair: Could not find parent form of the textarea.');
+        return;
     }
+    
+    parentForm.style.position = 'relative';
+    parentForm.appendChild(appContainer);
 
-    // --- 3. Create the icon/button to launch the side panel ---
+    // --- Create the icon/button to launch the side panel ---
     const launchIcon = document.createElement('button');
     launchIcon.id = 'promptflair-launch-icon';
-    launchIcon.innerHTML = '✨'; // Simple emoji icon for now
+    launchIcon.innerHTML = '✨';
     launchIcon.style.position = 'absolute';
     launchIcon.style.right = '12px';
     launchIcon.style.top = '10px';
@@ -27,42 +28,56 @@ if (targetTextArea) {
     launchIcon.style.background = 'transparent';
     launchIcon.style.fontSize = '20px';
     launchIcon.style.cursor = 'pointer';
+    launchIcon.style.zIndex = '100'; // Ensure it's on top
     
-    // Add the icon to the parent form
-    parentForm?.appendChild(launchIcon);
+    parentForm.appendChild(launchIcon);
     
-    // --- 4. Add click listener to mount the React app ---
-    launchIcon.addEventListener('click', () => {
-        // Toggle the side panel's visibility
-        appContainer.style.display = appContainer.style.display === 'block' ? 'none' : 'block';
+    // --- Add click listener to mount the React app ---
+    launchIcon.addEventListener('click', (e) => {
+        e.preventDefault(); // Prevent the form from submitting
         
-        // This is a simple way to mount the app only once
-        if (!appContainer.hasChildNodes()) {
+        // Find the iframe if it already exists
+        const existingIframe = document.getElementById('promptflair-iframe');
+
+        if (existingIframe) {
+            // Toggle visibility if it exists
+            existingIframe.style.display = existingIframe.style.display === 'none' ? 'block' : 'none';
+        } else {
+            // Create and mount the app if it doesn't exist
             mountReactApp(appContainer);
         }
     });
-
 }
 
 function mountReactApp(container: HTMLElement) {
-    try {
-        // We can't directly import React components here.
-        // Instead, we create an iframe to isolate our UI from the host page's styles.
-        const iframe = document.createElement('iframe');
-        iframe.id = 'promptflair-iframe';
-        iframe.style.width = '350px';
-        iframe.style.height = '100vh';
-        iframe.style.border = 'none';
-        iframe.style.position = 'fixed';
-        iframe.style.top = '0';
-        iframe.style.right = '0';
-        iframe.style.zIndex = '9999';
-        iframe.style.boxShadow = '-5px 0px 15px rgba(0,0,0,0.1)';
-        iframe.src = chrome.runtime.getURL('index.html'); // Load our UI's HTML file
-        
-        container.appendChild(iframe);
-
-    } catch (e) {
-        console.error("Error mounting PromptFlair app:", e);
-    }
+    const iframe = document.createElement('iframe');
+    iframe.id = 'promptflair-iframe';
+    iframe.style.width = '350px';
+    iframe.style.height = '100vh';
+    iframe.style.border = 'none';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '0';
+    iframe.style.right = '0';
+    iframe.style.zIndex = '9999';
+    iframe.style.boxShadow = '-5px 0px 15px rgba(0,0,0,0.1)';
+    iframe.src = chrome.runtime.getURL('index.html');
+    
+    container.appendChild(iframe);
 }
+
+// --- Use a MutationObserver to wait for the element to appear ---
+const observer = new MutationObserver((mutations, obs) => {
+    const targetTextArea = document.getElementById('prompt-textarea') as HTMLTextAreaElement;
+    if (targetTextArea) {
+        // Element found, initialize the app
+        initializeApp(targetTextArea);
+        // We found it, so we can stop observing to save resources
+        obs.disconnect(); 
+    }
+});
+
+// Start observing the entire document for changes
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
