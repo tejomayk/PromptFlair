@@ -1,2 +1,2 @@
 # PromptFlair
-Learn to communicate efficiently with humanity's most important assistants.
+Learn to communicate effectively with humanity's most important assistants.
