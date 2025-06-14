@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePyodide } from '../hooks/usePyodide';
+import '../styles/main.css';
 
 export const SidePanel = () => {
   // Use our custom hook to get the Python analysis function and loading state
